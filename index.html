@@ -79,7 +79,7 @@ body { font-family: Arial, sans-serif; background: radial-gradient(circle at cen
 <section class="scene" id="final"><div class="small">AND FINALLY...</div><div class="final-name">MAYOUSHTY</div><div class="final-heart">❤️</div><div class="sub">معمولة بكل حب ❤️</div></section>
 <div class="tap" id="tapText">TAP ANYWHERE</div>
 
-<!-- الصوت: مضاف له playsinline عشان الآيفون -->
+<!-- الصوت -->
 <audio id="music" loop preload="auto" playsinline webkit-playsinline>
   <source src="song.mp3" type="audio/mpeg">
 </audio>
@@ -89,6 +89,18 @@ const scenes = ["intro","flowerScene","flowerGlow","candleScene","candleGlow","l
 let stage = 0;
 let musicStarted = false;
 const music = document.getElementById("music");
+
+/* ======== AudioContext لفتح قناة الصوت على الآيفون ======== */
+let audioCtx = null;
+function unlockIOS() {
+  if (audioCtx) return;
+  try {
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    if (!Ctx) return;
+    audioCtx = new Ctx();
+    if (audioCtx.state === "suspended") audioCtx.resume();
+  } catch (e) {}
+}
 
 const message = `ميوشتي حبيبتي ❤️
 
@@ -107,49 +119,39 @@ const message = `ميوشتي حبيبتي ❤️
 بس دا ميمنعش...
 إني عايز بوسة برضو 😂😂❤️❤️`;
 
-/* ============ تشغيل الصوت - النسخة المضبوطة ============ */
+/* ======== تشغيل الصوت - نسخة مضبوطة للآيفون ======== */
 function startMusic() {
   if (musicStarted) return;
   musicStarted = true;
 
-  // 1) حل مشكلة iOS Safari (زرار الصامت + سياسة التشغيل)
-  try {
-    const Ctx = window.AudioContext || window.webkitAudioContext;
-    if (Ctx) {
-      const ctx = new Ctx();
-      if (ctx.state === "suspended") ctx.resume();
-    }
-  } catch (e) { /* تجاهل */ }
+  unlockIOS(); // مهم جدًا للآيفون
 
-  // 2) ضبط الصوت
   music.volume = 0.65;
 
-  // 3) دالة التشغيل
   const tryPlay = () => {
-    music.play()
-      .then(() => {
-        // بعد ما يشتغل، روح للثانية 15
-        if (music.duration && music.duration > 15) {
-          music.currentTime = 15;
-        }
-        console.log("Music started from 00:15 ❤️");
-      })
-      .catch(error => {
-        console.log("Music error:", error);
-        musicStarted = false; // حاول تاني مع اللمسة الجاية
-      });
+    try {
+      if (music.duration && music.duration > 15) music.currentTime = 15;
+      const p = music.play();
+      if (p && p.then) {
+        p.then(() => {
+          console.log("Music started ❤️");
+        }).catch(error => {
+          console.log("Music error:", error);
+          musicStarted = false;
+        });
+      }
+    } catch (error) {
+      console.log("Music exception:", error);
+      musicStarted = false;
+    }
   };
 
-  // 4) لو الملف محمّل → شغّل فورًا، وإلا استنى canplay
   if (music.readyState >= 2) {
     tryPlay();
   } else {
     music.addEventListener("canplay", tryPlay, { once: true });
     music.load();
-    // خطة احتياطية: لو بعد 1.5 ثانية لسه ما اشتغلش
-    setTimeout(() => {
-      if (!music.paused === false && music.paused) tryPlay();
-    }, 1500);
+    setTimeout(() => { if (music.paused) tryPlay(); }, 1500);
   }
 }
 
@@ -206,23 +208,20 @@ function createParticles() {
   }
 }
 
-/* ============ أحداث اللمس والكليك ============ */
-// كليك (لابتوب + موبايل)
+/* ======== أحداث اللمس - مضبوطة للآيفون ======== */
+// أول لمسة على أي حاجة: نشغّل الصوت
+['touchstart', 'touchend', 'click', 'pointerdown', 'keydown'].forEach(evt => {
+  document.addEventListener(evt, function () {
+    unlockIOS();
+    startMusic();
+  }, { passive: true });
+});
+
+// الكليك الرئيسي للتنقل بين المشاهد
 document.addEventListener("click", function() {
-  startMusic(); // ← يشتغل الصوت مع أول كليك
   if (stage === scenes.length - 1) return;
   nextStage();
 });
-
-// لمسة (موبايل) — أول لمسة بس
-document.addEventListener("touchstart", function() {
-  startMusic();
-}, { passive: true });
-
-// كيبورد
-document.addEventListener("keydown", function() {
-  startMusic();
-}, { once: true });
 </script>
 </body>
 </html>
