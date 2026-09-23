@@ -11,7 +11,7 @@ html, body { width: 100%; height: 100%; overflow: hidden; }
 body { font-family: Arial, sans-serif; background: radial-gradient(circle at center, #7b2944 0%, #5b2034 28%, #421522 52%, #250d16 75%, #12090d 100%); color: white; cursor: pointer; user-select: none; -webkit-tap-highlight-color: transparent; }
 .background-glow { position: fixed; width: 100vw; height: 100vh; left: 0; top: 0; pointer-events: none; background: radial-gradient(circle at 50% 45%, rgba(255, 120, 160, .16), transparent 45%); }
 .bg-heart { position: fixed; font-size: 18px; opacity: .18; animation: floatHeart 6s infinite ease-in-out; pointer-events: none; }
-.h1 { left: 12%; top: 15%; } .h2 { left: 82%; top: 22%; animation-delay: 1s; } .h3 { left: 20%; top: 72%; animation-delay: 2s; } .h4 { left: 75%; top: 75%; animation-delay: 3s; } .h5 { left: 50%; top: 10%; animation-delay: 1.5s; }
+.h1 { left: 12%; top: 15%; animation-delay: 0s; } .h2 { left: 82%; top: 22%; animation-delay: 1s; } .h3 { left: 20%; top: 72%; animation-delay: 2s; } .h4 { left: 75%; top: 75%; animation-delay: 3s; } .h5 { left: 50%; top: 10%; animation-delay: 1.5s; }
 @keyframes floatHeart { 0%,100% { transform: translateY(0) scale(1); opacity: .12; } 50% { transform: translateY(-18px) scale(1.2); opacity: .3; } }
 .scene { position: absolute; inset: 0; display: none; justify-content: center; align-items: center; flex-direction: column; text-align: center; padding: 25px; }
 .scene.active { display: flex; animation: sceneIn .9s ease; }
@@ -79,7 +79,7 @@ body { font-family: Arial, sans-serif; background: radial-gradient(circle at cen
 <section class="scene" id="final"><div class="small">AND FINALLY...</div><div class="final-name">MAYOUSHTY</div><div class="final-heart">❤️</div><div class="sub">معمولة بكل حب ❤️</div></section>
 <div class="tap" id="tapText">TAP ANYWHERE</div>
 
-<!-- عنصر الصوت مع دعم الموبايل -->
+<!-- الصوت: مضاف له playsinline عشان الآيفون -->
 <audio id="music" loop preload="auto" playsinline webkit-playsinline>
   <source src="song.mp3" type="audio/mpeg">
 </audio>
@@ -107,47 +107,54 @@ const message = `ميوشتي حبيبتي ❤️
 بس دا ميمنعش...
 إني عايز بوسة برضو 😂😂❤️❤️`;
 
-/* ===== تشغيل الصوت - نسخة محسّنة للموبايل ===== */
+/* ============ تشغيل الصوت - النسخة المضبوطة ============ */
 function startMusic() {
   if (musicStarted) return;
   musicStarted = true;
 
-  // حل مشكلة iOS Safari
+  // 1) حل مشكلة iOS Safari (زرار الصامت + سياسة التشغيل)
   try {
     const Ctx = window.AudioContext || window.webkitAudioContext;
     if (Ctx) {
       const ctx = new Ctx();
       if (ctx.state === "suspended") ctx.resume();
     }
-  } catch (e) {}
+  } catch (e) { /* تجاهل */ }
 
+  // 2) ضبط الصوت
   music.volume = 0.65;
 
+  // 3) دالة التشغيل
   const tryPlay = () => {
     music.play()
       .then(() => {
+        // بعد ما يشتغل، روح للثانية 15
         if (music.duration && music.duration > 15) {
           music.currentTime = 15;
         }
-        console.log("Music started ❤️");
+        console.log("Music started from 00:15 ❤️");
       })
-      .catch(err => {
-        console.log("Music error:", err);
-        musicStarted = false;
+      .catch(error => {
+        console.log("Music error:", error);
+        musicStarted = false; // حاول تاني مع اللمسة الجاية
       });
   };
 
+  // 4) لو الملف محمّل → شغّل فورًا، وإلا استنى canplay
   if (music.readyState >= 2) {
     tryPlay();
   } else {
     music.addEventListener("canplay", tryPlay, { once: true });
     music.load();
-    setTimeout(() => { if (music.paused) tryPlay(); }, 1500);
+    // خطة احتياطية: لو بعد 1.5 ثانية لسه ما اشتغلش
+    setTimeout(() => {
+      if (!music.paused === false && music.paused) tryPlay();
+    }, 1500);
   }
 }
 
 function showScene(index) {
-  document.querySelectorAll(".scene").forEach(scene => scene.classList.remove("active"));
+  document.querySelectorAll(".scene").forEach(scene => { scene.classList.remove("active"); });
   const current = document.getElementById(scenes[index]);
   if (current) current.classList.add("active");
   if (index === 6) setTimeout(() => { typeMessage(); }, 500);
@@ -199,17 +206,20 @@ function createParticles() {
   }
 }
 
-/* ===== الأحداث ===== */
+/* ============ أحداث اللمس والكليك ============ */
+// كليك (لابتوب + موبايل)
 document.addEventListener("click", function() {
-  startMusic();
+  startMusic(); // ← يشتغل الصوت مع أول كليك
   if (stage === scenes.length - 1) return;
   nextStage();
 });
 
+// لمسة (موبايل) — أول لمسة بس
 document.addEventListener("touchstart", function() {
   startMusic();
-}, { passive: true, once: true });
+}, { passive: true });
 
+// كيبورد
 document.addEventListener("keydown", function() {
   startMusic();
 }, { once: true });
